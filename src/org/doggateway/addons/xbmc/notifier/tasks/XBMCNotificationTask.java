@@ -19,15 +19,19 @@ package org.doggateway.addons.xbmc.notifier.tasks;
 
 import it.polito.elite.dog.core.library.model.notification.NonParametricNotification;
 import it.polito.elite.dog.core.library.model.notification.Notification;
+import it.polito.elite.dog.core.library.model.notification.ParametricNotification;
 import it.polito.elite.dog.core.library.util.LogHelper;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Set;
+
+import javax.measure.Measure;
 
 import org.osgi.service.log.LogService;
 
@@ -166,9 +170,38 @@ public class XBMCNotificationTask implements Runnable
 		else
 		{
 			// the value shall be retrieved
+			notificationAsString = "The " + notification.getDeviceUri() +" is now at "+this.getParametricNotificationValue((ParametricNotification)notification).toString();
 		}
 
 		return notificationAsString;
+	}
+	
+	private Measure<?, ?> getParametricNotificationValue(ParametricNotification receivedNotification)
+	{
+		// the value, initially null
+		Measure<?, ?> value = null;
+		
+		// get all the notification methods
+		Method[] notificationMethods = receivedNotification.getClass().getDeclaredMethods();
+		
+		// extract the measure value...
+		for (Method currentMethod : notificationMethods)
+		{
+			if (currentMethod.getReturnType().isAssignableFrom(Measure.class))
+			{
+				try
+				{
+					// read the value
+					value = (Measure<?, ?>) currentMethod.invoke(receivedNotification, new Object[] {});
+					break;
+				}
+				catch (Exception e)
+				{
+					this.logger.log(LogService.LOG_ERROR, "Error in getting notification value", e);
+				}
+			}
+		}
+		return value;
 	}
 
 }
